@@ -62,7 +62,6 @@ class Block(nn.Module):
         self.ln1 = nn.LayerNorm(config.emb_dim)
         self.mha1 = nn.MultiheadAttention(config.emb_dim, config.num_heads, batch_first=True)
         self.ln2 = nn.LayerNorm(config.emb_dim)
-        self.mha2 = nn.MultiheadAttention(config.emb_dim, config.num_heads, batch_first=True)
         self.ff = nn.Sequential(
             nn.Linear(config.emb_dim, config.emb_dim * 10),
             nn.GELU(),
