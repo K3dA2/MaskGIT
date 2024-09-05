@@ -6,7 +6,7 @@ import math
 
 
 class Config:
-    def __init__(self, num_heads = 8 , emb_dim = 128, use_mask=True, seq_len=3072, num_layers = 8, vocab_len = 1024):
+    def __init__(self, num_heads = 8 , emb_dim = 128, use_mask=True, seq_len=256, num_layers = 8, vocab_len = 512):
         self.num_heads = num_heads
         self.emb_dim = emb_dim
         self.use_mask = use_mask
@@ -96,9 +96,12 @@ class Transformer(nn.Module):
 
     def forward(self, x, y=None):
         B, T = x.size()
+        
         pos = torch.arange(0, T, dtype=torch.long, device=x.device)
         pos_emb = self.pos_emb(pos)
+
         tok_emb = self.tok_emb(x)
+        
         emb = tok_emb + pos_emb.unsqueeze(0)
         
         emb = self.first_block(emb)
