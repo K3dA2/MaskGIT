@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from models.modules import Encoder, Decoder  
+from modules import Encoder, Decoder  
 
 
 class VQVAE(nn.Module):
@@ -46,7 +46,7 @@ class VQVAE(nn.Module):
 
         # Reshape z_q back to the spatial dimensions of z
         z_q = z_q.permute(0, 2, 1).view((B, C, H, W))  # Shape: (batch_size, latent_dim, height, width)
-        c = z_q
+        
         commitment_loss = torch.mean((z_q.detach() - z) ** 2)
         codebook_loss = torch.mean((z_q - z.detach()) ** 2)
         if self.use_ema:
@@ -129,4 +129,3 @@ class VQVAE(nn.Module):
         min_distances, indices = torch.min(distances, dim=-1)
 
         return indices
-
