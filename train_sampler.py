@@ -10,11 +10,11 @@ import torch.nn.utils as utils
 from models.transformer import Transformer, Config
 from utils.vqsampler_dataloader import get_data_loader
 import torch.nn.functional as F
-from utils.utils import count_parameters
+from utils import count_parameters
 from models.model import VQVAE
 
 
-def training_loop(n_epochs, optimizer, model, device, data_loader, valid_loader, max_grad_norm=1.0, epoch_start=0, mask_token=1024):
+def training_loop(n_epochs, optimizer, model, device, data_loader, valid_loader, max_grad_norm=1.0, epoch_start=0, mask_token=515):
     model.train()
     best_loss_valid = float('inf')
     for epoch in range(epoch_start, n_epochs):
@@ -24,7 +24,6 @@ def training_loop(n_epochs, optimizer, model, device, data_loader, valid_loader,
         progress_bar = tqdm(data_loader, desc=f'Epoch {epoch}', unit='batch')
         for batch_idx, (x, y) in enumerate(progress_bar):
             x = x.to(device).long()  # Ensure x is of type torch.long
-            #y = y.to(device)
 
             mask = torch.bernoulli(0.5 * torch.ones(x.shape, device=x.device))
             mask = mask.round().to(dtype=torch.int64).to(x.device)
@@ -53,7 +52,7 @@ def training_loop(n_epochs, optimizer, model, device, data_loader, valid_loader,
                 mask_tokens = torch.ones(valid_tensors.shape[0], 1, device=valid_tensors.device).long() * mask_token
                 mask_indices = mask * valid_tensors + (1 - mask) * mask_tokens
                 mask_indices = mask_indices.long()  # Ensure mask_indices is of type torch.long
-
+                
                 _, valid_loss = model(mask_indices, valid_tensors)
                 loss_valid += valid_loss.item()
         
@@ -82,9 +81,9 @@ def training_loop(n_epochs, optimizer, model, device, data_loader, valid_loader,
     
 
 if __name__ == "__main__":
-    train_path = 'train.txt'
-    val_path = 'val.txt'
-    model_path = 'weights/vqvae-transformer.pth'
+    train_path = ''
+    val_path = ''
+    model_path = ''
     epoch = 0
 
     device = "cpu"
@@ -101,8 +100,8 @@ if __name__ == "__main__":
     optimizer = optim.AdamW(model.parameters(), lr=1e-3)
 
     print(f"Number of parameters: {count_parameters(model)}")
-    data_loader = get_data_loader(train_path, file_type='txt', batch_size=8, prepend_value=512)
-    val_loader = get_data_loader(val_path, file_type='txt', batch_size=8, prepend_value=512)
+    data_loader = get_data_loader(train_path, file_type='txt', batch_size=64, prepend_value=512)
+    val_loader = get_data_loader(val_path, file_type='txt', batch_size=64, prepend_value=512)
 
     
     # Optionally load model weights if needed
@@ -113,12 +112,12 @@ if __name__ == "__main__":
     
     
     training_loop(
-        n_epochs=200,
+        n_epochs=300,
         optimizer=optimizer,
         model=model,
         device=device,
         data_loader=data_loader,
         valid_loader=val_loader,
         epoch_start=epoch + 1,
-        mask_token=1024
+        mask_token=512
     )
