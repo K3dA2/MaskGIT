@@ -8,7 +8,7 @@ import datetime
 import os
 import torch.nn.utils as utils
 from models.model import VQVAE 
-from utils.utils import get_data_loader, count_parameters, save_img_tensors_as_grid
+from utils import get_data_loader, count_parameters, save_img_tensors_as_grid
 import uuid
 
 def training_loop(n_epochs, optimizer, model, loss_fn, device, data_loader, valid_loader,
@@ -19,15 +19,11 @@ def training_loop(n_epochs, optimizer, model, loss_fn, device, data_loader, vali
     ema_loss = None
     scheduler = None
     previous_loss = None
-    best_loss_valid = float('inf')
-    reset_frequency = 100
-    total_iterations = 0
 
     for epoch in range(epoch_start, n_epochs):
         loss_train = 0.0
         mse_loss_train = 0.0
         vq_loss_train = 0.0
-        avg_loss_val = 0.0
 
         progress_bar = tqdm(data_loader, desc=f'Epoch {epoch}', unit='batch')
         for batch_idx, (imgs, _) in enumerate(progress_bar):
@@ -49,14 +45,6 @@ def training_loop(n_epochs, optimizer, model, loss_fn, device, data_loader, vali
             optimizer.zero_grad()
 
             progress_bar.set_postfix(loss=loss.item(), mse_loss=mse_loss.item(), vq_loss=vq_loss.item())
-            total_iterations += 1
-
-            if reset:
-                if total_iterations % reset_frequency == 0:
-                    print("reseting")
-                    with torch.no_grad():
-                        model.reset_underused_embeddings(imgs, threshold=usage_threshold)
-                        
 
         avg_loss_train = loss_train / len(data_loader)
         avg_mse_loss_train = mse_loss_train / len(data_loader)
@@ -86,18 +74,17 @@ def training_loop(n_epochs, optimizer, model, loss_fn, device, data_loader, vali
             print(f'Val loss: {avg_loss_val}')
 
 
-        #if avg_loss_val < best_loss_valid == 0:
-        if epoch % 5 == 0:
+        if epoch % 1 == 0:
             if save_img:
                 with torch.no_grad():
                     for valid_tensors, _ in valid_loader:
                         break
 
-                    save_img_tensors_as_grid(valid_tensors, 8, "true1")
+                    save_img_tensors_as_grid(valid_tensors, 4, "true")
                     val_img, _ = model(valid_tensors.to(device))
-                    save_img_tensors_as_grid(val_img, 8, "recon1")
+                    save_img_tensors_as_grid(val_img, 4, "recon")
 
-            model_path = os.path.join('weights/', 'waifu-vqvae.pth')
+            model_path = os.path.join('weights/', 'waifu-vqvae_epoch.pth')
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
@@ -106,17 +93,22 @@ def training_loop(n_epochs, optimizer, model, loss_fn, device, data_loader, vali
             # Reset underused embeddings
         
         # Reset underused embeddings conditionally
-        
+        if reset:
+            if epoch > 5 and previous_loss is not None and avg_loss_train > previous_loss * 1.25:
+                print("reseting")
+                with torch.no_grad():
+                    for batch_imgs, _ in data_loader:
+                        model.reset_underused_embeddings(batch_imgs.to(device), threshold=usage_threshold)
+                        break
 
         previous_loss = avg_loss_train
 
 
 
 if __name__ == "__main__":
-    path = '/Users/ayanfe/Documents/Datasets/Waifus/Train'
-    val_path = '/Users/ayanfe/Documents/Code/Scraping Shit/images'
-    #val_path = '/Users/ayanfe/Documents/Datasets/Waifus/Val'
-    model_path = 'weights/waifu-vqvae.pth'  # Path to Model if trained previously
+    path = ''
+    val_path = ''
+    model_path = ''
     epoch = 0
 
     device = "cpu"
@@ -126,14 +118,14 @@ if __name__ == "__main__":
         device = "mps"
     print(f"using device: {device}")
 
-    model = VQVAE(latent_dim = 3, num_embeddings = 512, beta=0.25, use_ema=False, e_width=64,d_width=64)  # Assuming Unet is correctly imported and defined
+    model = VQVAE(latent_dim = 64, num_embeddings=512, beta=0.25, use_ema=False, e_width=64,d_width=64)  # Assuming Unet is correctly imported and defined
     model.to(device)
     optimizer = optim.AdamW(model.parameters(), lr=5e-4)
     loss_fn = nn.MSELoss().to(device)
 
     print(count_parameters(model))
-    data_loader = get_data_loader(path, batch_size = 64, num_samples=20_000)
-    val_loader = get_data_loader(val_path, batch_size = 64, num_samples=10_000)
+    data_loader = get_data_loader(path, batch_size = 32, num_samples=20_000)
+    val_loader = get_data_loader(val_path, batch_size = 32, num_samples=10_000)
 
     '''
     # Optionally load model weights if needed
@@ -147,9 +139,9 @@ if __name__ == "__main__":
         for valid_tensors, _ in val_loader:
             break
 
-        save_img_tensors_as_grid(valid_tensors, 8, "true")
+        save_img_tensors_as_grid(valid_tensors, 4, "true")
         val_img, _ = model(valid_tensors.to(device))
-        save_img_tensors_as_grid(val_img, 8, "recon")
+        save_img_tensors_as_grid(val_img, 4, "recon")
 
     
     training_loop(
